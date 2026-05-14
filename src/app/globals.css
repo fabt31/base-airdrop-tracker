@@ -1,0 +1,22 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --base-blue: #0052FF;
+}
+
+body {
+  background: #0A0A0A;
+  color: #ffffff;
+  font-family: 'Inter', sans-serif;
+}
+
+@keyframes ring-fill {
+  from { stroke-dashoffset: 502; }
+  to   { stroke-dashoffset: var(--offset); }
+}
+
+.ring-animate {
+  animation: ring-fill 1.2s ease-out forwards;
+}
