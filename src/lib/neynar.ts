@@ -1,48 +1,75 @@
 import { FarcasterUser } from './types'
 
+// Registre public des FIDs Farcaster — gratuit, sans clé
+const FNAMES_API = 'https://fnames.farcaster.xyz'
+// API publique Warpcast — gratuite, sans clé
+const WARPCAST_API = 'https://api.warpcast.com/v2'
+// Neynar (fallback si clé disponible)
 const NEYNAR_BASE = 'https://api.neynar.com/v2'
 
-export async function getFarcasterUser(addressOrFid: string): Promise<FarcasterUser | null> {
-  const apiKey = process.env.NEYNAR_API_KEY
-  if (!apiKey) return null
-
+export async function getFarcasterUser(address: string): Promise<FarcasterUser | null> {
   try {
-    // Cherche par adresse ETH d'abord
-    const isAddress = addressOrFid.startsWith('0x')
-    const url = isAddress
-      ? `${NEYNAR_BASE}/farcaster/user/bulk-by-address?addresses=${addressOrFid}`
-      : `${NEYNAR_BASE}/farcaster/user/bulk?fids=${addressOrFid}`
-
-    const res = await fetch(url, {
-      headers: { 'x-api-key': apiKey, 'accept': 'application/json' },
-      next: { revalidate: 300 },
-    })
-
-    if (!res.ok) return null
-    const data = await res.json()
-
-    let user: any = null
-    if (isAddress) {
-      const users = data[addressOrFid.toLowerCase()]
-      user = users?.[0]
-    } else {
-      user = data.users?.[0]
+    // 1. Si une clé Neynar est dispo, on l'utilise (plus complète)
+    const apiKey = process.env.NEYNAR_API_KEY
+    if (apiKey) {
+      const res = await fetch(
+        `${NEYNAR_BASE}/farcaster/user/bulk-by-address?addresses=${address}`,
+        { headers: { 'x-api-key': apiKey, 'accept': 'application/json' }, next: { revalidate: 300 } }
+      )
+      if (res.ok) {
+        const data = await res.json()
+        const user = data[address.toLowerCase()]?.[0]
+        if (user) return mapNeynarUser(user)
+      }
     }
 
+    // 2. Fallback gratuit : fnames.farcaster.xyz → Warpcast
+    const fnamesRes = await fetch(
+      `${FNAMES_API}/transfers?to=${address}`,
+      { next: { revalidate: 300 } }
+    )
+    if (!fnamesRes.ok) return null
+    const fnamesData = await fnamesRes.json()
+
+    // transfers trié par timestamp desc, on prend le plus récent
+    const fid = fnamesData.transfers?.[0]?.to
+    if (!fid) return null
+
+    const warpRes = await fetch(
+      `${WARPCAST_API}/user?fid=${fid}`,
+      { next: { revalidate: 300 } }
+    )
+    if (!warpRes.ok) return null
+    const warpData = await warpRes.json()
+    const user = warpData.result?.user
     if (!user) return null
 
     return {
       fid: user.fid,
       username: user.username,
-      displayName: user.display_name,
-      pfpUrl: user.pfp_url,
-      followerCount: user.follower_count ?? 0,
-      followingCount: user.following_count ?? 0,
-      castCount: user.cast_count ?? 0,
+      displayName: user.displayName,
+      pfpUrl: user.pfp?.url ?? '',
+      followerCount: user.followerCount ?? 0,
+      followingCount: user.followingCount ?? 0,
+      castCount: user.activeOnFcNetwork ? 1 : 0,
       bio: user.profile?.bio?.text ?? '',
-      verifiedAddresses: user.verified_addresses?.eth_addresses ?? [],
+      verifiedAddresses: [address],
     }
   } catch {
     return null
+  }
+}
+
+function mapNeynarUser(user: any): FarcasterUser {
+  return {
+    fid: user.fid,
+    username: user.username,
+    displayName: user.display_name,
+    pfpUrl: user.pfp_url,
+    followerCount: user.follower_count ?? 0,
+    followingCount: user.following_count ?? 0,
+    castCount: user.cast_count ?? 0,
+    bio: user.profile?.bio?.text ?? '',
+    verifiedAddresses: user.verified_addresses?.eth_addresses ?? [],
   }
 }
