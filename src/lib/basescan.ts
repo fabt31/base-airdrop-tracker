@@ -22,13 +22,13 @@ async function blockscoutFetch(path: string) {
 // Récupère toutes les pages de transactions (max 500 tx pour les perfs)
 async function getAllTransactions(address: string): Promise<any[]> {
   const items: any[] = []
-  let url = `/addresses/${address}/transactions?filter=to%20%7C%20from`
+  let url = `/addresses/${address}/transactions`
   let pages = 0
   while (url && pages < 10) {
     const data = await blockscoutFetch(url)
     if (data.items) items.push(...data.items)
     url = data.next_page_params
-      ? `/addresses/${address}/transactions?filter=to%20%7C%20from&block_number=${data.next_page_params.block_number}&index=${data.next_page_params.index}&items_count=${data.next_page_params.items_count}`
+      ? `/addresses/${address}/transactions?block_number=${data.next_page_params.block_number}&index=${data.next_page_params.index}&items_count=${data.next_page_params.items_count}`
       : ''
     pages++
   }
