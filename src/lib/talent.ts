@@ -9,21 +9,31 @@ export async function getTalentData(address: string): Promise<TalentData> {
   if (!apiKey) return { builderScore: 0, nominationsReceived: 0 }
 
   try {
+    // Talent Protocol API v3 — endpoint par wallet address
     const res = await fetch(
-      `https://api.talentprotocol.com/api/v2/passports/${address}`,
+      `https://api.talentprotocol.com/api/v3/passports/${address}`,
       {
-        headers: { 'X-API-KEY': apiKey, 'Content-Type': 'application/json' },
+        headers: {
+          'X-API-KEY': apiKey,
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+        },
         next: { revalidate: 3600 },
+        redirect: 'manual',   // ne pas suivre les redirects vers la page login
       }
     )
 
-    if (!res.ok) return { builderScore: 0, nominationsReceived: 0 }
+    // 410 = deprecated, 302 = redirect vers login (clé invalide ou endpoint changé)
+    if (!res.ok || res.status === 302) return { builderScore: 0, nominationsReceived: 0 }
+
     const data = await res.json()
-    const passport = data.passport
+    // Tenter les deux formats connus (v2 "passport" et v3 "profile")
+    const passport = data.passport ?? data.profile ?? data
+    const score = passport?.score ?? passport?.builder_score ?? passport?.passport_score ?? 0
 
     return {
-      builderScore: passport?.score ?? 0,
-      passportId: passport?.passport_id,
+      builderScore: typeof score === 'number' ? score : 0,
+      passportId: passport?.passport_id ?? passport?.id,
       nominationsReceived: passport?.nominations_received ?? 0,
     }
   } catch {
