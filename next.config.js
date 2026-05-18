@@ -6,6 +6,17 @@ const nextConfig = {
       { protocol: 'https', hostname: '**.cdninstagram.com' },
     ],
   },
+  async headers() {
+    return [
+      {
+        source: '/.well-known/farcaster.json',
+        headers: [
+          { key: 'Access-Control-Allow-Origin', value: '*' },
+          { key: 'Content-Type', value: 'application/json' },
+        ],
+      },
+    ]
+  },
 }
 
 module.exports = nextConfig

@@ -78,7 +78,7 @@ export async function getFarcasterUser(address: string): Promise<FarcasterUser |
       pfpUrl: user.pfp?.url ?? '',
       followerCount: user.followerCount ?? 0,
       followingCount: user.followingCount ?? 0,
-      castCount: user.activeOnFcNetwork ? user.followingCount : 0, // Approximation (Warpcast API limite)
+      castCount: 0, // Non exposé par l'API Warpcast publique
       bio: user.profile?.bio?.text ?? '',
       verifiedAddresses: [address],
     }

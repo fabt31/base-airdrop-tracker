@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import { AirdropScore } from '@/lib/types'
 import ScoreView from '@/components/ScoreView'
+import sdk from '@farcaster/frame-sdk'
 
 const HISTORY_KEY = 'bat_history'
 const MAX_HISTORY = 5
@@ -31,6 +32,10 @@ export default function Home() {
 
   useEffect(() => {
     setHistory(loadHistory())
+    // Signal à Warpcast que l'app est prête (cache l'écran de splash)
+    sdk.actions.ready().catch(() => {
+      // Hors contexte Farcaster (navigateur normal), l'appel échoue silencieusement
+    })
   }, [])
 
   async function handleCheck(e: React.FormEvent, overrideAddr?: string) {

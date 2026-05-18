@@ -14,7 +14,7 @@ const WEIGHTS = {
   consistency: 0.75,
   ensOrBasename: 0.5,
 }
-const TOTAL_WEIGHT = Object.values(WEIGHTS).reduce((a, b) => a + b, 0) // 9.0
+const TOTAL_WEIGHT = Object.values(WEIGHTS).reduce((a, b) => a + b, 0) // 9.5
 
 function criterion(
   label: string,
@@ -152,7 +152,7 @@ export function computeScore(
     total: Math.min(1000, total),
     address,
     fid: farcaster?.fid,
-    ensName: onchain.ensName ?? (onchain.hasBasename ? 'basename.base.eth' : undefined),
+    ensName: onchain.ensName ?? undefined,
     criteria,
     lastUpdated: new Date().toISOString(),
   }

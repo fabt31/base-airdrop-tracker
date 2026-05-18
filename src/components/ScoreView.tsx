@@ -65,8 +65,10 @@ function scoreLabel(s: number) {
 
 export default function ScoreView({ score }: { score: AirdropScore }) {
   const { label, color } = scoreLabel(score.total)
-  const ogImageUrl = `https://base-airdrop-tracker.vercel.app/og?score=${score.total}&address=${score.address}`
-  const appUrl = 'https://base-airdrop-tracker.vercel.app'
+  const appUrl = typeof window !== 'undefined'
+    ? window.location.origin
+    : (process.env.NEXT_PUBLIC_URL ?? 'https://base-airdrop-tracker.vercel.app')
+  const ogImageUrl = `${appUrl}/og?score=${score.total}&address=${score.address}`
   const shareText = `Mon score Base Airdrop Tracker : ${score.total}/1000 ${label}\n\nChecke le tien 👇\n${appUrl}`
   const shareUrl = `https://warpcast.com/~/compose?text=${encodeURIComponent(shareText)}&embeds[]=${encodeURIComponent(ogImageUrl)}`
 

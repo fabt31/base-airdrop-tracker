@@ -18,7 +18,7 @@ export async function GET() {
       homeUrl: appUrl,
       imageUrl: `${appUrl}/og`,
       buttonTitle: 'Checker mon score',
-      splashImageUrl: `${appUrl}/og`,
+      splashImageUrl: `${appUrl}/splash`,
       splashBackgroundColor: '#0052FF',
     },
   })
