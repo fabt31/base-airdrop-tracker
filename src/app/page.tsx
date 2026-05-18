@@ -76,7 +76,7 @@ export default function Home() {
 
       {/* Footer */}
       <p className="mt-auto pt-8 text-gray-600 text-xs text-center">
-        Données : Basescan · Neynar · Talent Protocol · Calcul non-officiel
+        Données : Blockscout · Farcaster · Talent Protocol on-chain · Calcul non-officiel
       </p>
     </main>
   )

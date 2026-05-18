@@ -31,8 +31,13 @@ export async function getFarcasterUser(address: string): Promise<FarcasterUser |
     if (!fnamesRes.ok) return null
     const fnamesData = await fnamesRes.json()
 
-    // transfers trié par timestamp desc, on prend le plus récent
-    const fid = fnamesData.transfers?.[0]?.to
+    // IMPORTANT: l'API fnames ignore le filtre si l'adresse n'existe pas et retourne
+    // tous les transfers. On vérifie que le transfer appartient bien à notre adresse.
+    const addrLower = address.toLowerCase()
+    const matchedTransfer = (fnamesData.transfers ?? []).find(
+      (t: any) => t.owner?.toLowerCase() === addrLower
+    )
+    const fid = matchedTransfer?.to
     if (!fid) return null
 
     const warpRes = await fetch(

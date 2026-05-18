@@ -13,7 +13,7 @@ const WEIGHTS = {
   socialGraph: 0.75,
   consistency: 0.75,
 }
-const TOTAL_WEIGHT = Object.values(WEIGHTS).reduce((a, b) => a + b, 0)
+const TOTAL_WEIGHT = Object.values(WEIGHTS).reduce((a, b) => a + b, 0) // 9.0
 
 function criterion(
   label: string,
@@ -26,6 +26,7 @@ function criterion(
     label,
     score: clamp,
     weight,
+    // Points individuels pour l'affichage (arrondis)
     points: Math.round((clamp * weight / TOTAL_WEIGHT) * 1000),
     detail,
   }
@@ -46,7 +47,7 @@ export function computeScore(
   const walletAgeMonths = walletAgeSeconds / (30 * 24 * 3600)
 
   const criteria: CriteriaBreakdown = {
-    // 1. Activité on-chain générale (max 500 txs = score 1.0)
+    // 1. Activité on-chain générale (max 500 txs = 1.0)
     onchainActivity: criterion(
       'Activité on-chain',
       normalize(onchain.txCount, 500),
@@ -54,28 +55,30 @@ export function computeScore(
       `${onchain.txCount} transactions sur Base`
     ),
 
-    // 2. Usage DeFi (max 100 interactions = 1.0)
+    // 2. Usage DeFi — appels directs aux protocoles connus (max 50 = 1.0)
     deFiUsage: criterion(
       'Usage DeFi',
-      normalize(onchain.defiTxCount, 100),
+      normalize(onchain.defiTxCount, 50),
       WEIGHTS.deFiUsage,
-      `${onchain.defiTxCount} interactions DeFi (swaps, LPs...)`
+      `${onchain.defiTxCount} interactions DeFi (Uniswap, Aerodrome…)`
     ),
 
-    // 3. NFT (max 50 txs = 1.0)
+    // 3. NFT (max 20 = 1.0)
     nftActivity: criterion(
       'NFT',
-      normalize(onchain.nftTxCount, 50),
+      normalize(onchain.nftTxCount, 20),
       WEIGHTS.nftActivity,
       `${onchain.nftTxCount} transactions NFT sur Base`
     ),
 
-    // 4. Builder Score Talent Protocol (0–100 → 0–1)
+    // 4. Builder Score Talent Protocol on-chain (0–100 → 0–1)
     builderScore: criterion(
       'Builder Score',
       normalize(talent.builderScore, 100),
       WEIGHTS.builderScore,
-      `Score ${talent.builderScore}/100 sur Talent Protocol`
+      talent.builderScore > 0
+        ? `Score ${talent.builderScore}/100 sur Talent Protocol`
+        : 'Aucun score Talent Protocol actif'
     ),
 
     // 5. Engagement Farcaster (max 1000 followers = 1.0)
@@ -84,11 +87,11 @@ export function computeScore(
       farcaster ? normalize(farcaster.followerCount, 1000) : 0,
       WEIGHTS.farcasterEngagement,
       farcaster
-        ? `${farcaster.followerCount} followers · ${farcaster.castCount} casts`
+        ? `@${farcaster.username} · ${farcaster.followerCount} followers`
         : 'Pas de compte Farcaster détecté'
     ),
 
-    // 6. Ancienneté wallet (max 24 mois = 1.0)
+    // 6. Ancienneté wallet (max 24 mois = 2 ans = 1.0)
     walletAge: criterion(
       'Ancienneté wallet',
       normalize(walletAgeMonths, 24),
@@ -96,27 +99,27 @@ export function computeScore(
       `${Math.round(walletAgeMonths)} mois d'activité sur Base`
     ),
 
-    // 7. Base-native (ratio activité Base, déjà 1.0 car Basescan)
+    // 7. Base-native (1.0 si wallet actif sur Base, 0 si vide)
     baseNative: criterion(
       'Base natif',
       onchain.baseRatio,
       WEIGHTS.baseNative,
-      `${Math.round(onchain.baseRatio * 100)}% de l'activité sur Base`
+      onchain.txCount > 0 ? '100% de l\'activité sur Base' : 'Aucune activité sur Base'
     ),
 
-    // 8. Réseau social (qualité : ratio followers/following, max 5 = 1.0)
+    // 8. Réseau social Farcaster (ratio followers/following, max 5:1 = 1.0)
     socialGraph: criterion(
       'Réseau social',
       farcaster && farcaster.followingCount > 0
         ? normalize(farcaster.followerCount / farcaster.followingCount, 5)
         : 0,
       WEIGHTS.socialGraph,
-      farcaster
-        ? `Ratio ${(farcaster.followerCount / Math.max(1, farcaster.followingCount)).toFixed(1)} (followers/following)`
+      farcaster && farcaster.followingCount > 0
+        ? `Ratio ${(farcaster.followerCount / farcaster.followingCount).toFixed(1)} followers/following`
         : 'N/A'
     ),
 
-    // 9. Régularité (mois actifs, max 12 = 1.0)
+    // 9. Régularité (mois actifs estimés, max 12 = 1.0)
     consistency: criterion(
       'Régularité',
       normalize(onchain.activeMonths, 12),
@@ -125,7 +128,12 @@ export function computeScore(
     ),
   }
 
-  const total = Object.values(criteria).reduce((sum, c) => sum + c.points, 0)
+  // Calcul du total depuis les scores bruts (évite les erreurs d'arrondi cumulées)
+  // Formule : moyenne pondérée × 1000, arrondie une seule fois
+  const weightedSum = Object.entries(criteria).reduce((sum, [key, c]) => {
+    return sum + c.score * WEIGHTS[key as keyof typeof WEIGHTS]
+  }, 0)
+  const total = Math.round((weightedSum / TOTAL_WEIGHT) * 1000)
 
   return {
     total: Math.min(1000, total),
