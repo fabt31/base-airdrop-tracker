@@ -118,11 +118,23 @@ export async function getOnchainData(address: string): Promise<OnchainData> {
     // Si le counter dit 0 mais la liste est aussi vide, baseRatio doit être 0
     const baseRatio = txCount > 0 ? 1.0 : 0
 
-    // DeFi = appels directs à des contrats DeFi connus UNIQUEMENT
-    // (on exclut les ERC-20 transfers simples qui ne sont pas du DeFi)
-    const defiTxCount = txList.filter(tx =>
+    // DeFi = deux sources complémentaires :
+    // 1. Appels directs aux contrats DeFi connus (swaps, LP, lending)
+    const defiContractCalls = txList.filter(tx =>
       DEFI_CONTRACTS.has(tx.to?.hash?.toLowerCase())
     ).length
+
+    // 2. ERC-20 reçus depuis des adresses tierces (proxy fiable d'activité DeFi :
+    //    swaps Uniswap, yield farming, lending rewards, bridges...)
+    //    On exclut les self-transfers et on prend le nombre de transfers distincts
+    const addrLow = address.toLowerCase()
+    const erc20Received = transfers.filter((t: any) =>
+      t.token?.type === 'ERC-20' &&
+      t.to?.hash?.toLowerCase() === addrLow &&
+      t.from?.hash?.toLowerCase() !== addrLow
+    ).length
+
+    const defiTxCount = defiContractCalls + Math.floor(erc20Received / 2)
 
     // NFT = transferts ERC-721 / ERC-1155 (depuis token-transfers, plus fiable)
     const nftTxCount = transfers.filter((t: any) =>
