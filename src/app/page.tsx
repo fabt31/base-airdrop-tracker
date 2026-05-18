@@ -1,24 +1,49 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { AirdropScore } from '@/lib/types'
 import ScoreView from '@/components/ScoreView'
+
+const HISTORY_KEY = 'bat_history'
+const MAX_HISTORY = 5
+
+function loadHistory(): string[] {
+  if (typeof window === 'undefined') return []
+  try {
+    return JSON.parse(localStorage.getItem(HISTORY_KEY) ?? '[]')
+  } catch {
+    return []
+  }
+}
+
+function saveToHistory(addr: string) {
+  const current = loadHistory()
+  const next = [addr, ...current.filter(a => a !== addr)].slice(0, MAX_HISTORY)
+  localStorage.setItem(HISTORY_KEY, JSON.stringify(next))
+}
 
 export default function Home() {
   const [address, setAddress] = useState('')
   const [loading, setLoading] = useState(false)
   const [score, setScore] = useState<AirdropScore | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [history, setHistory] = useState<string[]>([])
 
-  async function handleCheck(e: React.FormEvent) {
+  useEffect(() => {
+    setHistory(loadHistory())
+  }, [])
+
+  async function handleCheck(e: React.FormEvent, overrideAddr?: string) {
     e.preventDefault()
-    if (!address) return
+    const addr = overrideAddr ?? address.trim()
+    if (!addr) return
+    setAddress(addr)
     setLoading(true)
     setError(null)
     setScore(null)
 
     try {
-      const res = await fetch(`/api/score?address=${address.trim()}`)
+      const res = await fetch(`/api/score?address=${addr}`)
       if (!res.ok) {
         const data = await res.json()
         setError(data.error ?? 'Erreur inconnue')
@@ -26,6 +51,8 @@ export default function Home() {
       }
       const data: AirdropScore = await res.json()
       setScore(data)
+      saveToHistory(addr)
+      setHistory(loadHistory())
     } catch {
       setError('Impossible de contacter l\'API')
     } finally {
@@ -45,7 +72,7 @@ export default function Home() {
       </div>
 
       {/* Input */}
-      <form onSubmit={handleCheck} className="w-full max-w-md mb-8">
+      <form onSubmit={handleCheck} className="w-full max-w-md mb-2">
         <div className="flex gap-2">
           <input
             type="text"
@@ -63,6 +90,24 @@ export default function Home() {
           </button>
         </div>
       </form>
+
+      {/* History */}
+      {history.length > 0 && !score && (
+        <div className="w-full max-w-md mb-6">
+          <p className="text-gray-600 text-xs mb-2">Récents :</p>
+          <div className="flex flex-wrap gap-2">
+            {history.map(addr => (
+              <button
+                key={addr}
+                onClick={e => handleCheck(e as any, addr)}
+                className="bg-gray-800 hover:bg-gray-700 text-gray-400 text-xs font-mono px-3 py-1.5 rounded-lg transition-colors"
+              >
+                {addr.slice(0, 6)}…{addr.slice(-4)}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Error */}
       {error && (

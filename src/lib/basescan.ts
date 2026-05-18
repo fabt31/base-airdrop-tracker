@@ -2,6 +2,7 @@ import { OnchainData } from './types'
 
 const BLOCKSCOUT_BASE = 'https://base.blockscout.com/api/v2'
 const BLOCKSCOUT_V1 = 'https://base.blockscout.com/api'
+const BASENAME_REGISTRAR = '0x03c4738ee98ae22c5f887e7f6a84cf350d1d91fb'
 
 // Contrats DeFi connus sur Base (swaps, LP, lending)
 const DEFI_CONTRACTS = new Set([
@@ -72,6 +73,26 @@ async function getRecentTransactions(address: string): Promise<any[]> {
   return items
 }
 
+// Récupère le résumé de l'adresse (ens_domain_name pour ENS mainnet)
+async function getAddressInfo(address: string): Promise<{ ensName?: string }> {
+  try {
+    const data = await blockscoutFetch(`/addresses/${address}`)
+    return { ensName: data.ens_domain_name ?? undefined }
+  } catch {
+    return {}
+  }
+}
+
+// Récupère les NFTs détenus pour détecter un Basename
+async function getNftHoldings(address: string): Promise<any[]> {
+  try {
+    const data = await blockscoutFetch(`/addresses/${address}/tokens?type=ERC-721&limit=50`)
+    return data.items ?? []
+  } catch {
+    return []
+  }
+}
+
 // Récupère 3 pages de token-transfers pour NFT + mois d'activité
 async function getTokenTransfers(address: string): Promise<any[]> {
   const items: any[] = []
@@ -95,11 +116,13 @@ async function getTokenTransfers(address: string): Promise<any[]> {
 export async function getOnchainData(address: string): Promise<OnchainData> {
   try {
     // Tous les appels en parallèle pour minimiser la latence
-    const [txCountResult, firstTsResult, txItemsResult, transfersResult] = await Promise.allSettled([
+    const [txCountResult, firstTsResult, txItemsResult, transfersResult, addressInfoResult, nftHoldingsResult] = await Promise.allSettled([
       getTxCount(address),
       getFirstTxTimestamp(address),
       getRecentTransactions(address),
       getTokenTransfers(address),
+      getAddressInfo(address),
+      getNftHoldings(address),
     ])
 
     const txCount = txCountResult.status === 'fulfilled' ? txCountResult.value : 0
@@ -109,6 +132,16 @@ export async function getOnchainData(address: string): Promise<OnchainData> {
 
     const txList: any[] = txItemsResult.status === 'fulfilled' ? txItemsResult.value : []
     const transfers: any[] = transfersResult.status === 'fulfilled' ? transfersResult.value : []
+    const addressInfo = addressInfoResult.status === 'fulfilled' ? addressInfoResult.value : {}
+    const nftHoldings: any[] = nftHoldingsResult.status === 'fulfilled' ? nftHoldingsResult.value : []
+
+    // ENS/Basename : ens_domain_name from Blockscout (works for ENS mainnet)
+    const ensName = addressInfo.ensName
+
+    // Basename : check if user holds any ERC-721 from BaseRegistrar contract
+    const hasBasename = nftHoldings.some(
+      (item: any) => item.token?.address?.toLowerCase() === BASENAME_REGISTRAR
+    )
 
     // Wallet inactif : aucune transaction ni liste paginée
     if (txCount === 0 && txList.length === 0) {
@@ -170,6 +203,8 @@ export async function getOnchainData(address: string): Promise<OnchainData> {
       firstTxTimestamp,
       baseRatio,
       activeMonths,
+      ensName,
+      hasBasename,
     }
   } catch {
     return emptyOnchain()
@@ -185,5 +220,6 @@ function emptyOnchain(): OnchainData {
     firstTxTimestamp: Date.now() / 1000,
     baseRatio: 0,
     activeMonths: 0,
+    hasBasename: false,
   }
 }

@@ -2,6 +2,7 @@ export interface AirdropScore {
   total: number        // 0–1000
   address: string
   fid?: number
+  ensName?: string     // ENS ou Basename détecté
   criteria: CriteriaBreakdown
   lastUpdated: string
 }
@@ -16,6 +17,7 @@ export interface CriteriaBreakdown {
   baseNative: CriterionResult         // % activité sur Base vs autres chains
   socialGraph: CriterionResult        // Qualité réseau Farcaster
   consistency: CriterionResult        // Régularité activité mensuelle
+  ensOrBasename: CriterionResult      // ENS name ou Basename (.base.eth)
 }
 
 export interface CriterionResult {
@@ -46,4 +48,6 @@ export interface OnchainData {
   firstTxTimestamp: number
   baseRatio: number    // 0–1
   activeMonths: number // nb de mois distincts avec activité
+  ensName?: string     // ENS ou Basename détecté via Blockscout
+  hasBasename: boolean // possède un Basename NFT (.base.eth)
 }

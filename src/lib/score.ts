@@ -1,7 +1,7 @@
 import { AirdropScore, CriteriaBreakdown, CriterionResult, OnchainData, FarcasterUser } from './types'
 import { TalentData } from './talent'
 
-// Poids de chaque critère (total = 9.0)
+// Poids de chaque critère (total = 9.5)
 const WEIGHTS = {
   onchainActivity: 1.5,
   deFiUsage: 1.5,
@@ -12,6 +12,7 @@ const WEIGHTS = {
   baseNative: 1.0,
   socialGraph: 0.75,
   consistency: 0.75,
+  ensOrBasename: 0.5,
 }
 const TOTAL_WEIGHT = Object.values(WEIGHTS).reduce((a, b) => a + b, 0) // 9.0
 
@@ -126,6 +127,18 @@ export function computeScore(
       WEIGHTS.consistency,
       `Actif ${onchain.activeMonths} mois distincts`
     ),
+
+    // 10. ENS ou Basename (binaire : 1 si détecté)
+    ensOrBasename: criterion(
+      'ENS / Basename',
+      (onchain.ensName || onchain.hasBasename) ? 1 : 0,
+      WEIGHTS.ensOrBasename,
+      onchain.hasBasename
+        ? 'Possède un Basename (.base.eth)'
+        : onchain.ensName
+          ? `ENS détecté : ${onchain.ensName}`
+          : 'Aucun ENS ni Basename détecté'
+    ),
   }
 
   // Calcul du total depuis les scores bruts (évite les erreurs d'arrondi cumulées)
@@ -139,6 +152,7 @@ export function computeScore(
     total: Math.min(1000, total),
     address,
     fid: farcaster?.fid,
+    ensName: onchain.ensName ?? (onchain.hasBasename ? 'basename.base.eth' : undefined),
     criteria,
     lastUpdated: new Date().toISOString(),
   }

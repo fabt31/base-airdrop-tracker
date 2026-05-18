@@ -65,8 +65,10 @@ function scoreLabel(s: number) {
 
 export default function ScoreView({ score }: { score: AirdropScore }) {
   const { label, color } = scoreLabel(score.total)
-  const shareText = `Mon score Base Airdrop Tracker : ${score.total}/1000 ${label}\n\nChecke le tien 👇`
-  const shareUrl = `https://warpcast.com/~/compose?text=${encodeURIComponent(shareText)}`
+  const ogImageUrl = `https://base-airdrop-tracker.vercel.app/og?score=${score.total}&address=${score.address}`
+  const appUrl = 'https://base-airdrop-tracker.vercel.app'
+  const shareText = `Mon score Base Airdrop Tracker : ${score.total}/1000 ${label}\n\nChecke le tien 👇\n${appUrl}`
+  const shareUrl = `https://warpcast.com/~/compose?text=${encodeURIComponent(shareText)}&embeds[]=${encodeURIComponent(ogImageUrl)}`
 
   return (
     <div className="w-full max-w-md">
@@ -75,7 +77,7 @@ export default function ScoreView({ score }: { score: AirdropScore }) {
         <ScoreRing score={score.total} />
         <span className={`text-lg font-bold mb-1 ${color}`}>{label}</span>
         <span className="text-gray-500 text-xs font-mono">
-          {score.address.slice(0, 6)}…{score.address.slice(-4)}
+          {score.ensName ? `${score.ensName} · ` : ''}{score.address.slice(0, 6)}…{score.address.slice(-4)}
           {score.fid ? ` · FID #${score.fid}` : ''}
         </span>
       </div>
