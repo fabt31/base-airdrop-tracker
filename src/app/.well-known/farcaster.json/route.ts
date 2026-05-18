@@ -7,10 +7,9 @@ export async function GET() {
 
   return NextResponse.json({
     accountAssociation: {
-      // À remplir via Warpcast Developer Portal après déploiement
-      header: '',
-      payload: '',
-      signature: '',
+      header: 'eyJmaWQiOjQ5NTgyMiwidHlwZSI6ImN1c3RvZHkiLCJrZXkiOiIweDIxNjQ2QmZlM2ZGYzdBOEY5MzFjMmY2ZkY5NGVhZEVhMzEzMTU0RTEifQ',
+      payload: 'eyJkb21haW4iOiJiYXNlLWFpcmRyb3AtdHJhY2tlci52ZXJjZWwuYXBwIn0',
+      signature: '9fLRdAn59z8XgAmGZkK2hVOGn2oyJS5YeEu0n5n8TK47bdrnhLWyREvpxFg10UAETPzcAlhYfuZT5CTAMgzLhRs=',
     },
     frame: {
       version: '1',
