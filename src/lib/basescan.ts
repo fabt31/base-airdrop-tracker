@@ -110,9 +110,13 @@ export async function getOnchainData(address: string): Promise<OnchainData> {
     const txList: any[] = txItemsResult.status === 'fulfilled' ? txItemsResult.value : []
     const transfers: any[] = transfersResult.status === 'fulfilled' ? transfersResult.value : []
 
+    // Wallet inactif : aucune transaction ni liste paginée
     if (txCount === 0 && txList.length === 0) {
       return emptyOnchain()
     }
+
+    // Si le counter dit 0 mais la liste est aussi vide, baseRatio doit être 0
+    const baseRatio = txCount > 0 ? 1.0 : 0
 
     // DeFi = appels directs à des contrats DeFi connus UNIQUEMENT
     // (on exclut les ERC-20 transfers simples qui ne sont pas du DeFi)
@@ -152,7 +156,7 @@ export async function getOnchainData(address: string): Promise<OnchainData> {
       nftTxCount,
       uniqueContracts: new Set(txList.map(tx => tx.to?.hash?.toLowerCase()).filter(Boolean)).size,
       firstTxTimestamp,
-      baseRatio: 1.0,
+      baseRatio,
       activeMonths,
     }
   } catch {

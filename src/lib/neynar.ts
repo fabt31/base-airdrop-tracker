@@ -1,15 +1,49 @@
 import { FarcasterUser } from './types'
 
-// Registre public des FIDs Farcaster — gratuit, sans clé
-const FNAMES_API = 'https://fnames.farcaster.xyz'
 // API publique Warpcast — gratuite, sans clé
 const WARPCAST_API = 'https://api.warpcast.com/v2'
-// Neynar (fallback si clé disponible)
+// Farcaster IdRegistry sur Optimism Mainnet
+// Source: https://docs.farcaster.xyz/reference/contracts/reference/id-registry
+const FARCASTER_ID_REGISTRY = '0x00000000Fc6c5F01Fc30151999387Bb99A9f489b'
+const OP_RPC = 'https://mainnet.optimism.io'
+// Neynar (utilisé si clé disponible, plus complet)
 const NEYNAR_BASE = 'https://api.neynar.com/v2'
+
+// keccak256("idOf(address)")[0:4] = 0xd94fe832
+const ID_OF_SELECTOR = '0xd94fe832'
+
+/**
+ * Résout l'adresse ETH → FID Farcaster via le contrat IdRegistry sur Optimism.
+ * Retourne 0 si l'adresse n'est pas custody d'un FID.
+ */
+async function getFidByAddress(address: string): Promise<number> {
+  try {
+    const padded = address.slice(2).toLowerCase().padStart(64, '0')
+    const calldata = `${ID_OF_SELECTOR}${padded}`
+
+    const res = await fetch(OP_RPC, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        jsonrpc: '2.0',
+        method: 'eth_call',
+        params: [{ to: FARCASTER_ID_REGISTRY, data: calldata }, 'latest'],
+        id: 1,
+      }),
+      next: { revalidate: 3600 },
+    })
+    if (!res.ok) return 0
+    const data = await res.json()
+    if (data.error) return 0
+    return parseInt(data.result ?? '0x0', 16)
+  } catch {
+    return 0
+  }
+}
 
 export async function getFarcasterUser(address: string): Promise<FarcasterUser | null> {
   try {
-    // 1. Si une clé Neynar est dispo, on l'utilise (plus complète)
+    // 1. Si clé Neynar disponible, lookup direct par adresse (plus complet, vérifie custody + verified)
     const apiKey = process.env.NEYNAR_API_KEY
     if (apiKey) {
       const res = await fetch(
@@ -23,21 +57,9 @@ export async function getFarcasterUser(address: string): Promise<FarcasterUser |
       }
     }
 
-    // 2. Fallback gratuit : fnames.farcaster.xyz → Warpcast
-    const fnamesRes = await fetch(
-      `${FNAMES_API}/transfers?to=${address}`,
-      { next: { revalidate: 300 } }
-    )
-    if (!fnamesRes.ok) return null
-    const fnamesData = await fnamesRes.json()
-
-    // IMPORTANT: l'API fnames ignore le filtre si l'adresse n'existe pas et retourne
-    // tous les transfers. On vérifie que le transfer appartient bien à notre adresse.
-    const addrLower = address.toLowerCase()
-    const matchedTransfer = (fnamesData.transfers ?? []).find(
-      (t: any) => t.owner?.toLowerCase() === addrLower
-    )
-    const fid = matchedTransfer?.to
+    // 2. Fallback gratuit : IdRegistry on-chain (Optimism) → FID → Warpcast
+    // Note : uniquement les adresses custody. Les adresses "verified" ne sont pas indexées on-chain.
+    const fid = await getFidByAddress(address)
     if (!fid) return null
 
     const warpRes = await fetch(
@@ -56,7 +78,7 @@ export async function getFarcasterUser(address: string): Promise<FarcasterUser |
       pfpUrl: user.pfp?.url ?? '',
       followerCount: user.followerCount ?? 0,
       followingCount: user.followingCount ?? 0,
-      castCount: user.activeOnFcNetwork ? 1 : 0,
+      castCount: user.activeOnFcNetwork ? user.followingCount : 0, // Approximation (Warpcast API limite)
       bio: user.profile?.bio?.text ?? '',
       verifiedAddresses: [address],
     }
