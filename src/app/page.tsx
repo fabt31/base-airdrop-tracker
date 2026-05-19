@@ -29,20 +29,48 @@ export default function Home() {
   const [score, setScore] = useState<AirdropScore | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [history, setHistory] = useState<string[]>([])
+  const [fcUser, setFcUser] = useState<{ username?: string; displayName?: string } | null>(null)
+  const [detecting, setDetecting] = useState(false)
 
   useEffect(() => {
     setHistory(loadHistory())
+
     // Signal à Warpcast que l'app est prête (cache l'écran de splash)
     sdk.actions.ready().catch(() => {
       // Hors contexte Farcaster (navigateur normal), l'appel échoue silencieusement
     })
+
+    // Auto-détection : lit le FID depuis le contexte Warpcast
+    async function detectFarcasterUser() {
+      try {
+        setDetecting(true)
+        const ctx = await sdk.context
+        const fid = ctx?.user?.fid
+        if (!fid) return
+
+        // Récupère l'adresse ETH primaire liée à ce FID
+        const res = await fetch(`/api/farcaster-user?fid=${fid}`)
+        if (!res.ok) return
+        const data = await res.json()
+
+        if (data.primaryAddress) {
+          setAddress(data.primaryAddress)
+          setFcUser({ username: data.username, displayName: data.displayName })
+          // Lance automatiquement le calcul du score
+          triggerCheck(data.primaryAddress)
+        }
+      } catch {
+        // Hors Warpcast ou erreur réseau — mode manuel
+      } finally {
+        setDetecting(false)
+      }
+    }
+
+    detectFarcasterUser()
   }, [])
 
-  async function handleCheck(e: React.FormEvent, overrideAddr?: string) {
-    e.preventDefault()
-    const addr = overrideAddr ?? address.trim()
+  async function triggerCheck(addr: string) {
     if (!addr) return
-    setAddress(addr)
     setLoading(true)
     setError(null)
     setScore(null)
@@ -65,6 +93,14 @@ export default function Home() {
     }
   }
 
+  async function handleCheck(e: React.FormEvent, overrideAddr?: string) {
+    e.preventDefault()
+    const addr = overrideAddr ?? address.trim()
+    if (!addr) return
+    setAddress(addr)
+    await triggerCheck(addr)
+  }
+
   return (
     <main className="min-h-screen flex flex-col items-center justify-start px-4 pt-12 pb-8">
       {/* Header */}
@@ -73,8 +109,24 @@ export default function Home() {
           <div className="w-8 h-8 rounded-full bg-[#0052FF] flex items-center justify-center text-white font-bold text-sm">B</div>
           <h1 className="text-2xl font-bold text-white">Base Airdrop Tracker</h1>
         </div>
-        <p className="text-gray-400 text-sm">Calcule ton score d&apos;éligibilité en 9 critères</p>
+        {fcUser ? (
+          <p className="text-gray-400 text-sm">
+            Connecté en tant que{' '}
+            <span className="text-white font-medium">
+              {fcUser.displayName ?? fcUser.username ?? 'utilisateur Farcaster'}
+            </span>
+          </p>
+        ) : (
+          <p className="text-gray-400 text-sm">Calcule ton score d&apos;éligibilité en 9 critères</p>
+        )}
       </div>
+
+      {/* Loader détection automatique */}
+      {detecting && (
+        <div className="w-full max-w-md mb-4 text-center text-gray-500 text-sm animate-pulse">
+          Détection de ton compte Farcaster…
+        </div>
+      )}
 
       {/* Input */}
       <form onSubmit={handleCheck} className="w-full max-w-md mb-2">
