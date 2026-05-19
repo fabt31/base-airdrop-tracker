@@ -2,6 +2,7 @@ export interface TalentData {
   builderScore: number   // 0–100
   passportId?: number
   nominationsReceived: number
+  scoreExpired?: boolean  // passport existe mais score à renouveler sur talentprotocol.com
 }
 
 // PassportBuilderScore contract on Base (mainnet)
@@ -43,8 +44,13 @@ async function getBuilderScoreOnchain(address: string): Promise<number> {
       if (!res.ok) continue
       const data = await res.json()
 
-      // Si le contrat revert (score expiré, pas de passport), data.error existe
-      if (data.error) return 0
+      if (data.error) {
+        const msg = data.error?.message ?? ''
+        // "Score is expired" = passport exists, score needs refresh
+        // Return special sentinel -1 to distinguish from "no passport"
+        if (msg.toLowerCase().includes('expired')) return -1
+        return 0
+      }
 
       const hex = data.result as string
       if (!hex || hex === '0x') return 0
@@ -58,9 +64,11 @@ async function getBuilderScoreOnchain(address: string): Promise<number> {
 }
 
 export async function getTalentData(address: string): Promise<TalentData> {
-  const builderScore = await getBuilderScoreOnchain(address)
+  const raw = await getBuilderScoreOnchain(address)
+  const scoreExpired = raw === -1
   return {
-    builderScore,
+    builderScore: scoreExpired ? 0 : raw,
     nominationsReceived: 0,
+    scoreExpired,
   }
 }

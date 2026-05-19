@@ -79,7 +79,9 @@ export function computeScore(
       WEIGHTS.builderScore,
       talent.builderScore > 0
         ? `Score ${talent.builderScore}/100 sur Talent Protocol`
-        : 'Aucun score Talent Protocol actif'
+        : talent.scoreExpired
+          ? 'Score expiré — renouveler sur talentprotocol.com'
+          : 'Aucun passport Talent Protocol détecté'
     ),
 
     // 5. Engagement Farcaster (max 1000 followers = 1.0)
