@@ -2,7 +2,7 @@ import { OnchainData } from './types'
 
 const BLOCKSCOUT_BASE = 'https://base.blockscout.com/api/v2'
 const BLOCKSCOUT_V1 = 'https://base.blockscout.com/api'
-const BASENAME_REGISTRAR = '0x03c4738ee98ae22c5f887e7f6a84cf350d1d91fb'
+const BASENAME_REGISTRAR = '0x03c4738ee98ae44591e1a4a4f3cab6641d95dd9a'
 
 // Contrats DeFi connus sur Base (swaps, LP, lending)
 const DEFI_CONTRACTS = new Set([
