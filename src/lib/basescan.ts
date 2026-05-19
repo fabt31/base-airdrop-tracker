@@ -83,10 +83,33 @@ async function getAddressInfo(address: string): Promise<{ ensName?: string }> {
   }
 }
 
-// Récupère les NFTs détenus pour détecter un Basename
+// Détecte ENS + Basename via web3.bio (API publique, couvre custody + verified + reverse records)
+async function getWeb3BioProfile(address: string): Promise<{ ensName?: string; hasBasename: boolean }> {
+  try {
+    const res = await fetch(
+      `https://api.web3.bio/profile/${address.toLowerCase()}`,
+      { headers: { Accept: 'application/json' }, next: { revalidate: 3600 } }
+    )
+    if (!res.ok) return { hasBasename: false }
+    const profiles: any[] = await res.json()
+    if (!Array.isArray(profiles)) return { hasBasename: false }
+
+    const basename = profiles.find((p: any) => p.platform === 'basenames')
+    const ens = profiles.find((p: any) => p.platform === 'ens')
+
+    return {
+      ensName: basename?.identity ?? ens?.identity ?? undefined,
+      hasBasename: !!basename,
+    }
+  } catch {
+    return { hasBasename: false }
+  }
+}
+
+// Récupère les NFTs détenus pour détecter un Basename (fallback ERC-721)
 async function getNftHoldings(address: string): Promise<any[]> {
   try {
-    const data = await blockscoutFetch(`/addresses/${address}/tokens?type=ERC-721&limit=50`)
+    const data = await blockscoutFetch(`/addresses/${address}/tokens?type=ERC-721,ERC-1155&limit=50`)
     return data.items ?? []
   } catch {
     return []
@@ -116,13 +139,14 @@ async function getTokenTransfers(address: string): Promise<any[]> {
 export async function getOnchainData(address: string): Promise<OnchainData> {
   try {
     // Tous les appels en parallèle pour minimiser la latence
-    const [txCountResult, firstTsResult, txItemsResult, transfersResult, addressInfoResult, nftHoldingsResult] = await Promise.allSettled([
+    const [txCountResult, firstTsResult, txItemsResult, transfersResult, addressInfoResult, nftHoldingsResult, web3BioResult] = await Promise.allSettled([
       getTxCount(address),
       getFirstTxTimestamp(address),
       getRecentTransactions(address),
       getTokenTransfers(address),
       getAddressInfo(address),
       getNftHoldings(address),
+      getWeb3BioProfile(address),
     ])
 
     const txCount = txCountResult.status === 'fulfilled' ? txCountResult.value : 0
@@ -134,12 +158,14 @@ export async function getOnchainData(address: string): Promise<OnchainData> {
     const transfers: any[] = transfersResult.status === 'fulfilled' ? transfersResult.value : []
     const addressInfo = addressInfoResult.status === 'fulfilled' ? addressInfoResult.value : {}
     const nftHoldings: any[] = nftHoldingsResult.status === 'fulfilled' ? nftHoldingsResult.value : []
+    const web3Bio = web3BioResult.status === 'fulfilled' ? web3BioResult.value : { hasBasename: false }
 
-    // ENS/Basename : ens_domain_name from Blockscout (works for ENS mainnet)
-    const ensName = addressInfo.ensName
+    // ENS/Basename : web3.bio en priorité (couvre custody + verified + reverse records)
+    // Fallback sur Blockscout ens_domain_name
+    const ensName = web3Bio.ensName ?? addressInfo.ensName
 
-    // Basename : check if user holds any ERC-721 from BaseRegistrar contract
-    const hasBasename = nftHoldings.some(
+    // Basename : web3.bio en priorité, fallback sur holdings ERC-721/1155
+    const hasBasename = web3Bio.hasBasename || nftHoldings.some(
       (item: any) => item.token?.address?.toLowerCase() === BASENAME_REGISTRAR
     )
 
