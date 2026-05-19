@@ -9,6 +9,8 @@ export const revalidate = 300  // cache 5 min
 
 export async function GET(req: NextRequest) {
   const address = req.nextUrl.searchParams.get('address')
+  const fidParam = req.nextUrl.searchParams.get('fid')
+  const fid = fidParam ? parseInt(fidParam, 10) : undefined
 
   if (!address || !/^0x[0-9a-fA-F]{40}$/.test(address)) {
     return NextResponse.json(
@@ -20,7 +22,7 @@ export async function GET(req: NextRequest) {
   try {
     const [onchain, farcaster, talent] = await Promise.all([
       getOnchainData(address),
-      getFarcasterUser(address),
+      getFarcasterUser(address, fid),
       getTalentData(address),
     ])
 

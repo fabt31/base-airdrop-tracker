@@ -41,9 +41,9 @@ async function getFidByAddress(address: string): Promise<number> {
   }
 }
 
-export async function getFarcasterUser(address: string): Promise<FarcasterUser | null> {
+export async function getFarcasterUser(address: string, knownFid?: number): Promise<FarcasterUser | null> {
   try {
-    // 1. Si clé Neynar disponible, lookup direct par adresse (plus complet, vérifie custody + verified)
+    // 1. Si clé Neynar disponible, lookup direct par adresse (couvre custody + verified)
     const apiKey = process.env.NEYNAR_API_KEY
     if (apiKey) {
       const res = await fetch(
@@ -57,9 +57,8 @@ export async function getFarcasterUser(address: string): Promise<FarcasterUser |
       }
     }
 
-    // 2. Fallback gratuit : IdRegistry on-chain (Optimism) → FID → Warpcast
-    // Note : uniquement les adresses custody. Les adresses "verified" ne sont pas indexées on-chain.
-    const fid = await getFidByAddress(address)
+    // 2. Si FID fourni directement (depuis sdk.context Warpcast), l'utiliser sans lookup on-chain
+    const fid = knownFid ?? await getFidByAddress(address)
     if (!fid) return null
 
     const warpRes = await fetch(

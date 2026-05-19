@@ -31,6 +31,7 @@ export default function Home() {
   const [history, setHistory] = useState<string[]>([])
   const [fcUser, setFcUser] = useState<{ username?: string; displayName?: string } | null>(null)
   const [detecting, setDetecting] = useState(false)
+  const [fid, setFid] = useState<number | null>(null)
 
   useEffect(() => {
     setHistory(loadHistory())
@@ -55,9 +56,10 @@ export default function Home() {
 
         if (data.primaryAddress) {
           setAddress(data.primaryAddress)
+          setFid(fid)
           setFcUser({ username: data.username, displayName: data.displayName })
-          // Lance automatiquement le calcul du score
-          triggerCheck(data.primaryAddress)
+          // Lance automatiquement le calcul du score avec le FID connu
+          triggerCheck(data.primaryAddress, fid)
         }
       } catch {
         // Hors Warpcast ou erreur réseau — mode manuel
@@ -69,14 +71,16 @@ export default function Home() {
     detectFarcasterUser()
   }, [])
 
-  async function triggerCheck(addr: string) {
+  async function triggerCheck(addr: string, fidOverride?: number) {
     if (!addr) return
     setLoading(true)
     setError(null)
     setScore(null)
 
+    const knownFid = fidOverride ?? fid ?? undefined
+    const url = `/api/score?address=${addr}${knownFid ? `&fid=${knownFid}` : ''}`
     try {
-      const res = await fetch(`/api/score?address=${addr}`)
+      const res = await fetch(url)
       if (!res.ok) {
         const data = await res.json()
         setError(data.error ?? 'Erreur inconnue')
