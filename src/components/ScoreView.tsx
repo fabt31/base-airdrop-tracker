@@ -50,7 +50,19 @@ function CriterionBar({ c }: { c: CriterionResult }) {
           style={{ width: `${pct}%` }}
         />
       </div>
-      <p className="text-gray-500 text-xs mt-1">{c.detail}</p>
+      <div className="flex items-center gap-2 mt-1">
+        <p className="text-gray-500 text-xs">{c.detail}</p>
+        {c.actionUrl && (
+          <a
+            href={c.actionUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-[#0052FF] text-xs hover:underline whitespace-nowrap"
+          >
+            {c.actionLabel ?? 'Voir →'}
+          </a>
+        )}
+      </div>
     </div>
   )
 }

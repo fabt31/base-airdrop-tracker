@@ -26,6 +26,8 @@ export interface CriterionResult {
   weight: number    // poids dans le score total
   points: number    // contribution réelle (score * weight * 1000 / totalWeight)
   detail: string    // phrase explicative
+  actionUrl?: string  // lien d'action optionnel (ex: renouveler score)
+  actionLabel?: string
 }
 
 export interface FarcasterUser {

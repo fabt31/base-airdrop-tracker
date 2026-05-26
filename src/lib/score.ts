@@ -20,7 +20,9 @@ function criterion(
   label: string,
   score: number,
   weight: number,
-  detail: string
+  detail: string,
+  actionUrl?: string,
+  actionLabel?: string
 ): CriterionResult {
   const clamp = Math.min(1, Math.max(0, score))
   return {
@@ -30,6 +32,7 @@ function criterion(
     // Points individuels pour l'affichage (arrondis)
     points: Math.round((clamp * weight / TOTAL_WEIGHT) * 1000),
     detail,
+    ...(actionUrl ? { actionUrl, actionLabel: actionLabel ?? 'Voir →' } : {}),
   }
 }
 
@@ -72,16 +75,20 @@ export function computeScore(
       `${onchain.nftTxCount} transactions NFT sur Base`
     ),
 
-    // 4. Builder Score Talent Protocol on-chain (0–100 → 0–1)
+    // 4. Builder Score / Rank Talent Protocol on-chain (0–100 → 0–1)
     builderScore: criterion(
       'Builder Score',
       normalize(talent.builderScore, 100),
       WEIGHTS.builderScore,
       talent.builderScore > 0
-        ? `Score ${talent.builderScore}/100 sur Talent Protocol`
+        ? `Score ${talent.builderScore}/100 (talent.app)`
         : talent.scoreExpired
-          ? 'Score expiré — renouveler sur talentprotocol.com'
-          : 'Aucun passport Talent Protocol détecté'
+          ? 'Score expiré — recalcul auto tous les 14j'
+          : 'Aucun passport Talent Protocol détecté',
+      talent.builderScore > 0 || talent.scoreExpired
+        ? 'https://talent.app'
+        : undefined,
+      talent.scoreExpired ? 'Activer sur talent.app →' : 'talent.app →'
     ),
 
     // 5. Engagement Farcaster (max 1000 followers = 1.0)
